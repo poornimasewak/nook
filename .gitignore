@@ -68,3 +68,6 @@ mobile/android/
 backend/node_modules
 backend/.next
 backend/.env.local
+
+# Specstory history files
+.specstory/
