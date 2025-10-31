@@ -1,0 +1,73 @@
+import { NextApiRequest, NextApiResponse } from 'next';
+import { supabase } from '../../../lib/supabase';
+import { generateRandomOTP, storeEmailOTP } from '../../../lib/auth';
+import { sendEmailOTP } from '../../../lib/email-otp';
+
+export default async function handler(
+    req: NextApiRequest,
+    res: NextApiResponse
+) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+        const { email, fullName } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        if (!fullName) {
+            return res.status(400).json({ error: 'Full name is required' });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        // Check if user already exists (if Supabase is configured)
+        let existingUser = null;
+        if (supabase) {
+            const result = await supabase
+                .from('users')
+                .select('id')
+                .eq('email', email)
+                .single();
+            existingUser = result.data;
+        }
+
+        // Generate and send OTP
+        const otp = generateRandomOTP();
+        storeEmailOTP(email, otp, fullName);
+
+        // Try to send OTP via email service
+        const sent = await sendEmailOTP(email, otp, fullName);
+
+        if (!sent) {
+            // In development, log OTP to console
+            if (process.env.NODE_ENV === 'development') {
+                console.log(`\n${'='.repeat(60)}`);
+                console.log(`📧 OTP for ${email}: ${otp}`);
+                console.log(`👤 Full Name: ${fullName}`);
+                console.log(`⏰ This code expires in 5 minutes`);
+                console.log(`${'='.repeat(60)}\n`);
+            } else {
+                return res.status(500).json({ error: 'Failed to send OTP via email' });
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'OTP sent successfully to your email',
+            isNewUser: !existingUser
+        });
+    } catch (error) {
+        console.error('Error sending email OTP:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+
