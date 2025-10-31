@@ -35,7 +35,7 @@ export default async function handler(
                 .from('users')
                 .select('id')
                 .eq('email', email)
-                .single();
+                .maybeSingle(); // Use maybeSingle() to avoid error when user doesn't exist
             existingUser = result.data;
         }
 
