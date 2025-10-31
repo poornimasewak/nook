@@ -54,6 +54,7 @@ export default function LoginPage() {
 
     try {
       // Always use custom API endpoint (logs OTP to Vercel logs)
+      console.log('Sending OTP request for email:', email);
       const response = await fetch('/api/auth/send-email-otp', {
         method: 'POST',
         headers: {
@@ -62,21 +63,25 @@ export default function LoginPage() {
         body: JSON.stringify({ email, fullName }),
       });
 
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (response.ok) {
         // Store user data for verification
         localStorage.setItem('tempEmail', email);
         localStorage.setItem('tempFullName', fullName);
         
+        console.log('Redirecting to /login/verify');
         // Redirect to OTP verification page
         router.push('/login/verify');
       } else {
+        console.error('API error:', data);
         setError(data.error || 'Failed to send OTP. Please try again.');
       }
     } catch (err) {
-      setError('Network error. Please check your connection and try again.');
       console.error('Login error:', err);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
