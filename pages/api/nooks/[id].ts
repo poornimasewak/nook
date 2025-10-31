@@ -48,7 +48,7 @@ export default async function handler(
             const memberIds = memberData?.map(m => m.user_id) || [];
 
             // Get member details
-            let members = [];
+            let members: any[] = [];
             if (memberIds.length > 0) {
                 const { data: users } = await supabase
                     .from('users')
