@@ -28,7 +28,7 @@ interface NookMember {
 export default function NookChatPage() {
   const router = useRouter();
   const params = useParams();
-  const nookId = params.id as string;
+  const nookId = params?.id as string;
   const { socket, isConnected, onlineUsers } = useSocket();
   
   const [user, setUser] = useState<any>(null);
