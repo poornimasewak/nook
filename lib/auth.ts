@@ -4,12 +4,14 @@ import { AuthToken } from './types';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret';
 
-export function generateToken(userId: string, phoneNumber: string): string {
-    return jwt.sign({ userId, phoneNumber }, JWT_SECRET, { expiresIn: '7d' });
+export function generateToken(userId: string, identifier: string): string {
+    // identifier can be phoneNumber or email
+    return jwt.sign({ userId, email: identifier, phoneNumber: identifier }, JWT_SECRET, { expiresIn: '7d' });
 }
 
-export function generateRefreshToken(userId: string, phoneNumber: string): string {
-    return jwt.sign({ userId, phoneNumber }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+export function generateRefreshToken(userId: string, identifier: string): string {
+    // identifier can be phoneNumber or email
+    return jwt.sign({ userId, email: identifier, phoneNumber: identifier }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 }
 
 export function verifyToken(token: string): AuthToken | null {

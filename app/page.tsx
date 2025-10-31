@@ -1,6 +1,23 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user is already authenticated
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+
+    if (token && user) {
+      // User is already logged in, redirect to nook
+      router.push('/nook');
+    }
+  }, [router]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50 via-blue-50 to-orange-50">
       <main className="flex flex-col items-center justify-center px-8 py-16">

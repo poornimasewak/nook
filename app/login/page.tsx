@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 declare global {
@@ -10,6 +11,7 @@ declare global {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,6 +20,16 @@ export default function LoginPage() {
   const [mojoAuthLoaded, setMojoAuthLoaded] = useState(false);
 
   useEffect(() => {
+    // Check if user is already authenticated
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+
+    if (token && user) {
+      // User is already logged in, redirect to nook
+      router.push('/nook');
+      return;
+    }
+
     // Load MojoAuth SDK
     const script = document.createElement('script');
     script.src = 'https://cdn.mojoauth.com/js/mojoauth.min.js';
@@ -30,7 +42,7 @@ export default function LoginPage() {
     return () => {
       document.body.removeChild(script);
     };
-  }, []);
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

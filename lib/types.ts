@@ -1,6 +1,7 @@
 export interface AuthToken {
     userId: string;
-    phoneNumber: string;
+    phoneNumber?: string;
+    email?: string;
 }
 
 export interface OTPData {

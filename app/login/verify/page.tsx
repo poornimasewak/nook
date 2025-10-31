@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function VerifyOTPPage() {
+  const router = useRouter();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -14,6 +16,16 @@ export default function VerifyOTPPage() {
   const [verificationType, setVerificationType] = useState<'phone' | 'email'>('phone');
 
   useEffect(() => {
+    // Check if user is already authenticated (completed verification)
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+
+    if (token && user) {
+      // User is already logged in, redirect to nook
+      router.push('/nook');
+      return;
+    }
+
     // Check for email verification first
     const tempEmail = localStorage.getItem('tempEmail');
     const tempFullName = localStorage.getItem('tempFullName');
@@ -34,7 +46,7 @@ export default function VerifyOTPPage() {
       // If no verification data, redirect to login
       window.location.href = '/login';
     }
-  }, []);
+  }, [router]);
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1 || !/^\d*$/.test(value)) return;

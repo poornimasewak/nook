@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSocket } from '../../lib/socket-context';
 
 interface Friend {
   id: string;
@@ -22,6 +23,7 @@ interface Nook {
 
 export default function YourNookPage() {
   const router = useRouter();
+  const { socket, isConnected, onlineUsers } = useSocket();
   const [activeTab, setActiveTab] = useState<'friends' | 'nooks' | 'create'>('friends');
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +34,8 @@ export default function YourNookPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showNameEdit, setShowNameEdit] = useState(false);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     // Check authentication
@@ -115,11 +119,14 @@ export default function YourNookPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setSuccess('Nook created successfully! 🎉');
-        setNewNookName('');
-        setSelectedFriends([]);
-        loadNooks();
-        setTimeout(() => setActiveTab('nooks'), 1500);
+        const newNookId = data.nook.id;
+        
+        setSuccess('Nook created! Opening chat... 🎉');
+        
+        // Redirect to the chat page for the new nook
+        setTimeout(() => {
+          router.push(`/nook/${newNookId}`);
+        }, 1000);
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to create nook');
@@ -140,6 +147,49 @@ export default function YourNookPage() {
     );
   };
 
+  const handleUpdateName = async () => {
+    if (!newName.trim()) {
+      setError('Please enter a name');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/users/update-profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newName }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update local state
+        const updatedUser = { ...user, name: newName };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setShowNameEdit(false);
+        setSuccess('Name updated! ✅');
+        
+        // Notify Socket.io server about the name change
+        if (socket && isConnected) {
+          socket.emit('update_username', { name: newName });
+          console.log('📡 Sent username update to Socket.io server');
+        }
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Failed to update name');
+      }
+    } catch (error) {
+      setError('Error updating name');
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
@@ -147,7 +197,8 @@ export default function YourNookPage() {
     router.push('/login');
   };
 
-  const onlineFriends = friends.filter(f => f.is_online);
+  // Get online friends from socket connection
+  const onlineFriends = onlineUsers.filter(u => u.id !== user?.id);
 
   if (loading) {
     return (
@@ -164,14 +215,57 @@ export default function YourNookPage() {
         <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 via-green-400 to-orange-400 flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 via-green-400 to-orange-400 flex items-center justify-center shadow-lg relative">
                 <span className="text-2xl font-bold text-white">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
+                {isConnected && (
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
+                )}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Welcome, {user?.name}! 👋</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-gray-800">Welcome, {user?.name}! 👋</h1>
+                  <button
+                    onClick={() => {
+                      setShowNameEdit(!showNameEdit);
+                      setNewName(user?.name || '');
+                    }}
+                    className="text-teal-600 hover:text-teal-700"
+                    title="Edit name"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
+                {showNameEdit && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="Enter your name"
+                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    />
+                    <button
+                      onClick={handleUpdateName}
+                      className="px-3 py-1 bg-teal-500 text-white rounded-lg text-sm hover:bg-teal-600"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setShowNameEdit(false)}
+                      className="px-3 py-1 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 <p className="text-gray-600">{user?.email}</p>
+                <p className={`text-xs ${isConnected ? 'text-green-600' : 'text-gray-400'}`}>
+                  {isConnected ? '● Connected' : '○ Disconnected'}
+                </p>
               </div>
             </div>
             <button
@@ -266,26 +360,29 @@ export default function YourNookPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {onlineFriends.map((friend) => (
-                      <div
-                        key={friend.id}
-                        className="bg-gradient-to-br from-teal-50 to-green-50 p-6 rounded-2xl border-2 border-teal-200 hover:shadow-lg transition-shadow"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-green-400 flex items-center justify-center text-white font-bold text-lg">
-                              {friend.name.charAt(0).toUpperCase()}
+                    {onlineFriends.map((friend) => {
+                      const displayName = friend.name || friend.email || 'Unknown User';
+                      return (
+                        <div
+                          key={friend.id}
+                          className="bg-gradient-to-br from-teal-50 to-green-50 p-6 rounded-2xl border-2 border-teal-200 hover:shadow-lg transition-shadow"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-green-400 flex items-center justify-center text-white font-bold text-lg">
+                                {displayName.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
                             </div>
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-800">{friend.name}</h3>
-                            <p className="text-sm text-gray-600">{friend.email}</p>
-                            <span className="inline-block mt-1 text-xs text-green-600 font-semibold">● Online</span>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-800">{displayName}</h3>
+                              <p className="text-sm text-gray-600">{friend.email || 'No email'}</p>
+                              <span className="inline-block mt-1 text-xs text-green-600 font-semibold">● Online</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -316,7 +413,8 @@ export default function YourNookPage() {
                     {nooks.map((nook) => (
                       <div
                         key={nook.id}
-                        className="bg-gradient-to-br from-orange-50 to-yellow-50 p-6 rounded-2xl border-2 border-orange-200 hover:shadow-lg transition-all cursor-pointer"
+                        onClick={() => router.push(`/nook/${nook.id}`)}
+                        className="bg-gradient-to-br from-orange-50 to-yellow-50 p-6 rounded-2xl border-2 border-orange-200 hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer"
                       >
                         <div className="flex items-start gap-4">
                           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center text-white font-bold text-xl">
@@ -328,6 +426,11 @@ export default function YourNookPage() {
                             <p className="text-xs text-gray-500">
                               Last active: {new Date(nook.last_activity).toLocaleDateString()}
                             </p>
+                          </div>
+                          <div className="text-teal-600">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
                           </div>
                         </div>
                       </div>
@@ -371,46 +474,51 @@ export default function YourNookPage() {
                     />
                   </div>
 
-                  {/* Select Friends */}
+                  {/* Select Online Users */}
                   <div className="mb-8">
                     <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Add Friends (Optional)
+                      Add People (from online users)
                     </label>
-                    {friends.length === 0 ? (
+                    {onlineFriends.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-xl">
-                        <p className="text-gray-500">No friends yet. Add some friends first!</p>
+                        <p className="text-gray-500">No one else is online right now!</p>
+                        <p className="text-xs text-gray-400 mt-2">You can still create the nook and add people later</p>
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-64 overflow-y-auto bg-gray-50 rounded-xl p-4">
-                        {friends.map((friend) => (
-                          <label
-                            key={friend.id}
-                            className={`flex items-center gap-4 p-3 rounded-lg cursor-pointer transition-all ${
-                              selectedFriends.includes(friend.id)
-                                ? 'bg-teal-100 border-2 border-teal-400'
-                                : 'bg-white border-2 border-gray-200 hover:border-teal-300'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedFriends.includes(friend.id)}
-                              onChange={() => toggleFriendSelection(friend.id)}
-                              className="w-5 h-5 text-teal-500 focus:ring-teal-400 rounded"
-                            />
-                            <div className="flex items-center gap-3 flex-1">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-green-400 flex items-center justify-center text-white font-bold">
-                                {friend.name.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-gray-800">{friend.name}</p>
-                                <p className="text-xs text-gray-500">{friend.email}</p>
-                              </div>
-                              {friend.is_online && (
+                        {onlineFriends.map((person) => {
+                          const displayName = person.name || person.email || 'Unknown User';
+                          return (
+                            <label
+                              key={person.id}
+                              className={`flex items-center gap-4 p-3 rounded-lg cursor-pointer transition-all ${
+                                selectedFriends.includes(person.id)
+                                  ? 'bg-teal-100 border-2 border-teal-400'
+                                  : 'bg-white border-2 border-gray-200 hover:border-teal-300'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedFriends.includes(person.id)}
+                                onChange={() => toggleFriendSelection(person.id)}
+                                className="w-5 h-5 text-teal-500 focus:ring-teal-400 rounded"
+                              />
+                              <div className="flex items-center gap-3 flex-1">
+                                <div className="relative">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-green-400 flex items-center justify-center text-white font-bold">
+                                    {displayName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-800">{displayName}</p>
+                                  <p className="text-xs text-gray-500">{person.email || 'No email'}</p>
+                                </div>
                                 <span className="ml-auto text-xs text-green-600 font-semibold">● Online</span>
-                              )}
-                            </div>
-                          </label>
-                        ))}
+                              </div>
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
                     {selectedFriends.length > 0 && (

@@ -39,13 +39,26 @@ export default async function handler(
                 return res.status(404).json({ error: 'Nook not found' });
             }
 
-            // Get members
-            const { data: members } = await supabase
+            // Get member IDs
+            const { data: memberData } = await supabase
                 .from('nook_members')
-                .select('*, users(id, name, display_picture, is_online, last_seen)')
+                .select('user_id')
                 .eq('nook_id', id);
 
-            return res.status(200).json({ nook, members: members || [] });
+            const memberIds = memberData?.map(m => m.user_id) || [];
+
+            // Get member details
+            let members = [];
+            if (memberIds.length > 0) {
+                const { data: users } = await supabase
+                    .from('users')
+                    .select('id, name, email, display_picture, is_online')
+                    .in('id', memberIds);
+                
+                members = users || [];
+            }
+
+            return res.status(200).json({ nook, members });
         } else if (req.method === 'PUT') {
             // Update nook
             const { name, avatar, background } = req.body;
