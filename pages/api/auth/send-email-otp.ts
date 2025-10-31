@@ -46,18 +46,13 @@ export default async function handler(
         // Try to send OTP via email service
         const sent = await sendEmailOTP(email, otp, fullName);
 
-        if (!sent) {
-            // In development, log OTP to console
-            if (process.env.NODE_ENV === 'development') {
-                console.log(`\n${'='.repeat(60)}`);
-                console.log(`📧 OTP for ${email}: ${otp}`);
-                console.log(`👤 Full Name: ${fullName}`);
-                console.log(`⏰ This code expires in 5 minutes`);
-                console.log(`${'='.repeat(60)}\n`);
-            } else {
-                return res.status(500).json({ error: 'Failed to send OTP via email' });
-            }
-        }
+        // Always log OTP to console (visible in Vercel logs for testing)
+        console.log(`\n${'='.repeat(60)}`);
+        console.log(`📧 OTP for ${email}: ${otp}`);
+        console.log(`👤 Full Name: ${fullName}`);
+        console.log(`⏰ This code expires in 5 minutes`);
+        console.log(`🔧 Email sent: ${sent ? 'Yes' : 'No (check Vercel logs for OTP)'}`);
+        console.log(`${'='.repeat(60)}\n`);
 
         return res.status(200).json({
             success: true,

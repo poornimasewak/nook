@@ -4,12 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-declare global {
-  interface Window {
-    MojoAuth: any;
-  }
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
@@ -17,7 +11,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState(false);
-  const [mojoAuthLoaded, setMojoAuthLoaded] = useState(false);
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -29,19 +22,6 @@ export default function LoginPage() {
       router.push('/nook');
       return;
     }
-
-    // Load MojoAuth SDK
-    const script = document.createElement('script');
-    script.src = 'https://cdn.mojoauth.com/js/mojoauth.min.js';
-    script.async = true;
-    script.onload = () => {
-      setMojoAuthLoaded(true);
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,48 +53,26 @@ export default function LoginPage() {
     }
 
     try {
-      // In development, always use fallback API to see OTP in console
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      
-      // Use MojoAuth for email OTP (only in production)
-      if (!isDevelopment && mojoAuthLoaded && window.MojoAuth) {
-        const mojoauth = new window.MojoAuth(process.env.NEXT_PUBLIC_MOJOAUTH_API_KEY || 'test-key');
+      // Always use custom API endpoint (logs OTP to Vercel logs)
+      const response = await fetch('/api/auth/send-email-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, fullName }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store user data for verification
+        localStorage.setItem('tempEmail', email);
+        localStorage.setItem('tempFullName', fullName);
         
-        try {
-          await mojoauth.signInWithEmailOTP({ email });
-          
-          // Store user data for verification
-          localStorage.setItem('tempEmail', email);
-          localStorage.setItem('tempFullName', fullName);
-          
-          // Redirect to OTP verification page
-          window.location.href = '/login/verify';
-        } catch (mojoError: any) {
-          console.error('MojoAuth error:', mojoError);
-          setError(mojoError.message || 'Failed to send OTP. Please try again.');
-        }
+        // Redirect to OTP verification page
+        router.push('/login/verify');
       } else {
-        // Fallback: Use custom API endpoint (logs OTP to console in dev mode)
-        const response = await fetch('/api/auth/send-email-otp', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, fullName }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          // Store user data for verification
-          localStorage.setItem('tempEmail', email);
-          localStorage.setItem('tempFullName', fullName);
-          
-          // Redirect to OTP verification page
-          window.location.href = '/login/verify';
-        } else {
-          setError(data.error || 'Failed to send OTP. Please try again.');
-        }
+        setError(data.error || 'Failed to send OTP. Please try again.');
       }
     } catch (err) {
       setError('Network error. Please check your connection and try again.');
