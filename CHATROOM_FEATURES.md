@@ -147,3 +147,4 @@ The chat room features:
 **Note**: The current implementation uses simulated message status updates. For production, integrate with a real backend API and WebSocket for real-time functionality.
 
 
+

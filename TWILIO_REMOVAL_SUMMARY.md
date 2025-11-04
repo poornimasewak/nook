@@ -325,3 +325,4 @@ If you encounter any issues after the Twilio removal:
 
 All functionality has been replaced with email-based authentication. The application is now simpler, more cost-effective, and easier to develop with.
 
+

@@ -236,3 +236,4 @@ The backend is ready for deployment to Vercel. The mobile app needs to be built 
 
 
 
+
