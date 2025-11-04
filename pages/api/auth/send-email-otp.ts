@@ -43,10 +43,10 @@ export default async function handler(
         const otp = generateRandomOTP();
         const stored = await storeEmailOTP(email, otp, fullName);
         
-        if (!stored && !supabase) {
-            console.error('⚠️ Failed to store OTP - Supabase not configured');
+        if (!stored) {
+            console.error('⚠️ Failed to store OTP');
             return res.status(500).json({ 
-                error: 'OTP storage failed. Please configure Supabase.' 
+                error: 'Failed to store OTP. Please try again.' 
             });
         }
 

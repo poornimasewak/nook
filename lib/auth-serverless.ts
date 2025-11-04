@@ -36,6 +36,9 @@ export interface EmailOTPData {
     expiresAt: number;
 }
 
+// In-memory fallback for local development (NOT for production!)
+const devOtpStore = new Map<string, EmailOTPData>();
+
 /**
  * Store Email OTP - Serverless Compatible
  * Uses Supabase if available, falls back to in-memory (dev only)
@@ -75,9 +78,17 @@ export async function storeEmailOTP(email: string, otp: string, fullName: string
             return false;
         }
     } else {
-        // Fallback for development (NOT recommended for production)
-        console.warn('⚠️ Supabase not configured. OTP storage may not work in serverless environment!');
-        return false;
+        // Fallback for LOCAL development ONLY
+        // ⚠️ This will NOT work in production/serverless!
+        console.warn('⚠️ Using in-memory OTP storage (dev only). Configure Supabase for production!');
+        
+        devOtpStore.set(email, { email, otp, fullName, expiresAt });
+        
+        // Auto-cleanup
+        setTimeout(() => devOtpStore.delete(email), 5 * 60 * 1000);
+        
+        console.log(`📝 Stored OTP in memory: ${email} -> ${otp}`);
+        return true;
     }
 }
 
@@ -121,8 +132,31 @@ export async function verifyEmailOTP(
             return { isValid: false };
         }
     } else {
-        console.error('⚠️ Supabase not configured. Cannot verify OTP!');
-        return { isValid: false };
+        // Fallback for LOCAL development ONLY
+        console.warn('⚠️ Using in-memory OTP verification (dev only)');
+        
+        const stored = devOtpStore.get(email);
+        if (!stored) {
+            console.log('OTP not found in memory store');
+            return { isValid: false };
+        }
+
+        if (Date.now() > stored.expiresAt) {
+            devOtpStore.delete(email);
+            console.log('OTP expired');
+            return { isValid: false };
+        }
+
+        if (stored.otp !== otp) {
+            console.log('OTP mismatch');
+            return { isValid: false };
+        }
+
+        // Valid!
+        const fullName = stored.fullName;
+        devOtpStore.delete(email);
+        console.log('✅ OTP verified successfully');
+        return { isValid: true, fullName };
     }
 }
 
