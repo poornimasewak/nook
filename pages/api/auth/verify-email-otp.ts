@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
-import { verifyEmailOTP, generateToken, generateRefreshToken } from '../../../lib/auth';
+import { verifyEmailOTP, generateToken, generateRefreshToken } from '../../../lib/auth-serverless';
 
 export default async function handler(
     req: NextApiRequest,
@@ -18,7 +18,7 @@ export default async function handler(
         }
 
         // Verify OTP
-        const verification = verifyEmailOTP(email, otp);
+        const verification = await verifyEmailOTP(email, otp);
         
         if (!verification.isValid) {
             return res.status(400).json({ error: 'Invalid or expired OTP' });

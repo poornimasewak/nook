@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase';
-import { generateRandomOTP, storeEmailOTP } from '../../../lib/auth';
+import { generateRandomOTP, storeEmailOTP } from '../../../lib/auth-serverless';
 import { sendEmailOTP } from '../../../lib/email-otp';
 
 export default async function handler(
@@ -41,7 +41,14 @@ export default async function handler(
 
         // Generate and send OTP
         const otp = generateRandomOTP();
-        storeEmailOTP(email, otp, fullName);
+        const stored = await storeEmailOTP(email, otp, fullName);
+        
+        if (!stored && !supabase) {
+            console.error('⚠️ Failed to store OTP - Supabase not configured');
+            return res.status(500).json({ 
+                error: 'OTP storage failed. Please configure Supabase.' 
+            });
+        }
 
         // Try to send OTP via email service
         const sent = await sendEmailOTP(email, otp, fullName);
